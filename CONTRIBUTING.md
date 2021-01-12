@@ -9,6 +9,7 @@ To contribute a feature/fix:
 3. Make sure that your code passes the linter.
 4. Add new unit tests for your code.
 
+Tackle first good issues first.
 `GitHub Issues`: https://github.com/activeloopai/Hub/issues
 
 

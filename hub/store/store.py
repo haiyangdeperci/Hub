@@ -1,21 +1,22 @@
+from typing import MutableMapping, Tuple
 import posixpath
 import shutil
-from hub.store.cache import Cache
-from hub.store.lru_cache import LRUCache
-
-from hub.client.hub_control import HubControlClient
 import configparser
-from typing import MutableMapping, Tuple
+import os
+from time import sleep
 
+import re
 import fsspec
 import gcsfs
 import zarr
+
+from hub.store.lru_cache import LRUCache
+from hub.client.hub_control import HubControlClient
 from hub.store.azure_fs import AzureBlobFileSystem
-import os
-import re
+from hub.store.s3_file_system_replacement import S3FileSystemReplacement
 
 
-def _connect(tag):
+def _connect(tag, public=True):
     """Connects to the backend and receives credentials"""
 
     creds = HubControlClient().get_config()
@@ -28,18 +29,20 @@ def _connect(tag):
     else:
         sub_tags = tag.split("/")
         # Get repository path from the cred location
-        path = "/".join(creds["bucket"].split("/")[:-1])
+        path = "/".join(creds["bucket"].split("/")[:-2])
+        path = path + "/public" if public else path + "/private"
         path = f"{path}/{sub_tags[0]}/{sub_tags[-1]}"
     return path, creds
 
 
-def get_fs_and_path(url: str, token=None) -> Tuple[fsspec.AbstractFileSystem, str]:
+def get_fs_and_path(
+    url: str, token=None, public=True
+) -> Tuple[fsspec.AbstractFileSystem, str]:
     if url.startswith("s3://"):
         token = token or dict()
         token = read_aws_creds(token) if isinstance(token, str) else token
         return (
-            fsspec.filesystem(
-                "s3",
+            S3FileSystemReplacement(
                 key=token.get("aws_access_key_id"),
                 secret=token.get("aws_secret_access_key"),
                 token=token.get("aws_session_token"),
@@ -72,9 +75,8 @@ def get_fs_and_path(url: str, token=None) -> Tuple[fsspec.AbstractFileSystem, st
         return fsspec.filesystem("file"), url
     else:
         # TOOD check if url is username/dataset:version
-        url, creds = _connect(url)
-        fs = fsspec.filesystem(
-            "s3",
+        url, creds = _connect(url, public=public)
+        fs = S3FileSystemReplacement(
             key=creds["access_key"],
             secret=creds["secret_key"],
             token=creds["session_token"],
@@ -118,12 +120,6 @@ def get_cache_path(path, cache_folder="~/.activeloop/cache/"):
 
 def get_storage_map(fs, path, memcache=2 ** 26, lock=True, storage_cache=2 ** 28):
     store = _get_storage_map(fs, path)
-    cache_path = get_cache_path(path)
-    if storage_cache and storage_cache > 0:
-        os.makedirs(cache_path, exist_ok=True)
-        store = LRUCache(
-            zarr.LMDBStore(cache_path, buffers=True, lock=lock), store, storage_cache
-        )
     if memcache and memcache > 0:
         store = LRUCache(zarr.MemoryStore(), store, memcache)
     return store

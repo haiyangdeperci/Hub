@@ -1,5 +1,5 @@
 from hub import Dataset
-from hub.api.tensorview import TensorView
+from hub.api.datasetview import TensorView
 from hub.exceptions import NoneValueException
 from hub.schema import Tensor
 
@@ -24,13 +24,13 @@ def test_tensorview_init():
 
 def test_tensorview_getitem():
     images_tensorview = ds["image"]
-    with pytest.raises(ValueError):
+    with pytest.raises(IndexError):
         images_tensorview["7", 0:1920, 0:1080, 0:3].compute()
 
 
 def test_tensorview_setitem():
     images_tensorview = ds["image"]
-    with pytest.raises(ValueError):
+    with pytest.raises(IndexError):
         images_tensorview["7", 0:1920, 0:1080, 0:3] = np.zeros((1920, 1080, 3), "uint8")
 
 

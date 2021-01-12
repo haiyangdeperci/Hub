@@ -63,6 +63,7 @@ from hub import Dataset
 
 # Loading the mnist data lazily
 mnist = Dataset("activeloop/mnist")
+# Completely loading or *computing* the numpy array for the first thousand of images
 mnist["image"][0:1000].compute()
 ```
 

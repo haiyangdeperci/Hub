@@ -61,6 +61,7 @@ You can access public datasets with a few lines of code.
 ```python
 from hub import Dataset
 
+# Loading the mnist data lazily
 mnist = Dataset("activeloop/mnist")
 mnist["image"][0:1000].compute()
 ```
